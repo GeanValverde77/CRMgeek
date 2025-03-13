@@ -10,13 +10,14 @@
   "author": "Juan De la torre",
   "license": "ISC",
   "dependencies": {
-    "apollo-server": "^2.11.0",
+    "apollo-server": "^2.26.2",
     "bcryptjs": "^2.4.3",
-    "dotenv": "^8.2.0",
+    "dotenv": "^8.6.0",
     "jsonwebtoken": "^8.5.1",
-    "mongoose": "^5.9.7"
+    "mongoose": "^5.13.23",
+    "package.json": "^2.0.1"
   },
   "devDependencies": {
-    "nodemon": "^2.0.2"
+    "nodemon": "^2.0.22"
   }
 }
