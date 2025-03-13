@@ -1,0 +1,1 @@
+{"ast":null,"code":"export const SELECCIONAR_CLIENTE = 'SELECCIONAR_CLIENTE';\nexport const SELECCIONAR_PRODUCTO = 'SELECCIONAR_PRODUCTO';\nexport const CANTIDAD_PRODUCTOS = 'CANTIDAD_PRODUCTOS';\nexport const ACTUALIZAR_TOTAL = 'ACTUALIZAR_TOTAL';","map":null,"metadata":{},"sourceType":"module"}
