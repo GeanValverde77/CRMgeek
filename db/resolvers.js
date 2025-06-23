@@ -2,11 +2,22 @@ const Usuario = require('../models/Usuario');
 const Producto = require('../models/Producto');
 const Cliente = require('../models/Cliente');
 const Pedido = require('../models/Pedido');
-
+const { exec } = require("child_process");
+const path = require("path");
+const fs = require("fs");
+const { execFile } = require("child_process");
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config({ path: 'variables.env' });
 
+const procesarVentas = require('../procesarVentas');
+
+const pronosticoPath = path.join(__dirname, "../pronosticoVentas.json");
+
+const pythonPath = path.join(__dirname, "../pronostico.py"); // Definiendo pythonPath correctamente
+const jsonPath = path.join(__dirname, "../pronosticoVentas.json"); // Archivo de salida JSON
+// En tu resolvers.js
+const GraphQLJSON = require('graphql-type-json');
 
 const crearToken = (usuario, secreta, expiresIn) => {
     // console.log(usuario);
@@ -15,8 +26,14 @@ const crearToken = (usuario, secreta, expiresIn) => {
     return jwt.sign( { id, email, nombre, apellido }, secreta, { expiresIn } )
 }
 
+const procesarPronosticoPROGPT = require('../graphql/resolversPronosticoPROGPT.js').Mutation.procesarPronosticoPROGPT;
+
+
 // Resolvers
 const resolvers = {
+    
+    JSON: GraphQLJSON,
+    
     Query: {
         obtenerUsuario: async (_, {}, ctx) => {
             return ctx.usuario;
@@ -39,6 +56,13 @@ const resolvers = {
 
             return producto;
         },
+
+
+        obtenerModelos: async () => {
+        const modelos = await Producto.distinct("nombre");
+        return modelos.map(m => m.toUpperCase().trim());
+        },
+
         obtenerClientes: async () => {
             try {
                 const clientes = await Cliente.find({});
@@ -47,14 +71,24 @@ const resolvers = {
                 console.log(error);
             }
         }, 
-        obtenerClientesVendedor: async (_, {}, ctx ) => {
+        obtenerClientesVendedor: async (_, {}, ctx) => {
+            console.log("Usuario autenticado:", ctx.usuario); // Log para verificar si el usuario existe
+        
+            if (!ctx.usuario) {
+                throw new Error("No autenticado"); // Si el usuario no está autenticado, lanzar error
+            }
+        
             try {
                 const clientes = await Cliente.find({ vendedor: ctx.usuario.id.toString() });
+                console.log("Clientes encontrados:", clientes); // Log para ver si se están obteniendo clientes
                 return clientes;
             } catch (error) {
-                console.log(error);
+                console.log("Error al obtener clientes:", error);
+                throw new Error("Hubo un error obteniendo los clientes");
             }
-        }, 
+        },
+
+
         obtenerCliente: async (_, { id }, ctx) => {
             // Revisar si el cliente existe o no
             const cliente = await Cliente.findById(id);
@@ -162,9 +196,53 @@ const resolvers = {
             const productos = await Producto.find({ $text: { $search: texto  } }).limit(10)
 
             return productos;
-        }
-    }, 
+        },
+        pronosticoVentas: async (_, { mes, modelo }) => {
+    const scriptVentas = path.join(__dirname, "../procesarVentas.js");
+    const scriptModelo = path.join(__dirname, "../pronostico.py");
+    const outputPath = path.join(__dirname, "../pronosticoVentas.json");
+
+    console.log("📅 Mes:", mes, "📱 Modelo:", modelo);
+
+    if (!mes || !modelo) {
+        throw new Error("❌ Debes proporcionar el mes y el modelo");
+    }
+
+    // Paso 1: regenerar ventas.json
+    await new Promise((resolve, reject) => {
+        execFile("node", [scriptVentas], (err, stdout, stderr) => {
+            if (stdout) console.log("📤 ventas.json STDOUT:", stdout.trim());
+            if (stderr) console.error("📥 ventas.json STDERR:", stderr.trim());
+            if (err) return reject(new Error(`Error al generar ventas.json: ${stderr || err.message}`));
+            resolve();
+        });
+    });
+
+    // Paso 2: ejecutar pronostico.py con mes y modelo
+    return new Promise((resolve, reject) => {
+        execFile("python", [scriptModelo, mes, modelo], (err, stdout, stderr) => {
+            console.log("📤 pronostico.py STDOUT:", stdout.trim());
+            if (stderr) console.error("📥 pronostico.py STDERR:", stderr.trim());
+
+            if (err) {
+                return reject(new Error(`Error ejecutando pronostico.py: ${stderr || err.message}`));
+            }
+
+            try {
+                const data = JSON.parse(stdout);
+                fs.writeFileSync(outputPath, JSON.stringify(data, null, 2)); // opcional
+                resolve(data);
+            } catch (parseErr) {
+                return reject(new Error(`Error al parsear salida de pronostico.py: ${parseErr.message}`));
+            }
+        });
+    });
+},
+
+
+}, 
     Mutation: {
+
         nuevoUsuario: async (_, { input } ) => {
 
             const { email, password } = input;
@@ -188,28 +266,38 @@ const resolvers = {
                 console.log(error);
             }
         }, 
+        
         autenticarUsuario: async (_, {input}) => {
-
             const { email, password } = input;
-
+        
             // Si el usuario existe
             const existeUsuario = await Usuario.findOne({email});
             if (!existeUsuario) {
                 throw new Error('El usuario no existe');
             }
-
+        
+            // Mostrar las contraseñas que se están comparando
+            console.log("Password ingresado:", password);
+            console.log("Password guardado en la BD:", existeUsuario.password);
+        
             // Revisar si el password es correcto
-            const passwordCorrecto = await bcryptjs.compare( password, existeUsuario.password );
-            if(!passwordCorrecto) {
-                throw new Error('El Password es Incorrecto');
+            const passwordCorrecto = await bcryptjs.compare(password, existeUsuario.password);
+            console.log("Resultado de bcrypt.compare():", passwordCorrecto);
+        
+            if (!passwordCorrecto) {
+                console.log("🚨 Error: Las contraseñas no coinciden");
+                throw new Error("El Password es Incorrecto");
             }
-
-            // Crear el token
-            return {
-                token: crearToken(existeUsuario, process.env.SECRETA, '8h' ) 
-            }
-            
+        
+            // **Generar el token**
+            const token = crearToken(existeUsuario, process.env.SECRETA, "7d");
+        
+            // **Confirmar que el token se ha generado**
+            console.log("✅ Token generado:", token);
+        
+            return { token };
         },
+        
         nuevoProducto: async (_, {input}) => {
             try {
                 const producto = new Producto(input);
@@ -415,8 +503,88 @@ const resolvers = {
             // eliminar de la base de datos
             await Pedido.findOneAndDelete({_id: id});
             return "Pedido Eliminado"
-        }
-    }
-}
+        },
+        generarPronostico: async (_, { modelo, mes, cliente }) => {
+            console.log("📅 Mes:", mes, "📱 Modelo:", modelo, "👤 Cliente:", cliente || "(sin filtro)");
+
+            if (!mes || !modelo) {
+                throw new Error("❌ Debes proporcionar el mes y el modelo");
+            }
+
+            const scriptParser = path.join(__dirname, "../parse.py");
+            const scriptPronostico = path.join(__dirname, "../pronostico.py");
+            const outputPath = path.join(__dirname, "../pronosticoVentas.json");
+
+            // Paso 1: ejecutar el parser para generar ventas_parseadas.json
+            await new Promise((resolve, reject) => {
+                execFile("python", [scriptParser], (err, stdout, stderr) => {
+                    if (stdout) console.log("📤 parse.py STDOUT:", stdout.trim());
+                    if (stderr) console.error("📥 parse.py STDERR:", stderr.trim());
+                    if (err) return reject(new Error(`Error ejecutando parse.py: ${stderr || err.message}`));
+                    resolve();
+        });
+    });
+
+    // Paso 2: ejecutar pronostico.py con mes, modelo y cliente (si se proporcionó)
+    return new Promise((resolve, reject) => {
+        const args = cliente ? [modelo, mes, cliente] : [modelo, mes];
+
+        execFile("python", [scriptPronostico, ...args], (err, stdout, stderr) => {
+            if (stdout) console.log("📤 pronostico.py STDOUT:", stdout.trim());
+            if (stderr) console.error("📥 pronostico.py STDERR:", stderr.trim());
+
+            if (err) {
+                return reject(new Error(`Error ejecutando pronostico.py: ${stderr || err.message}`));
+            }
+
+            try {
+                const data = JSON.parse(stdout);
+                fs.writeFileSync(outputPath, JSON.stringify(data, null, 2)); // opcional
+                resolve(data);
+            } catch (parseErr) {
+                return reject(new Error(`Error al parsear salida de pronostico.py: ${parseErr.message}`));
+            }
+        });
+        
+    });
+},
+        procesarPronosticoPRO: async (_, { data, target, features, modelo, cliente, producto }) => {
+            try {
+                const tempPath = path.join(__dirname, "../temp_data.json");
+                const scriptPath = path.join(__dirname, "../pronostico_pro.py");
+
+                // Guardar archivo temporal con todos los datos
+                fs.writeFileSync(tempPath, JSON.stringify({ data, target, features, modelo, cliente, producto }));
+
+                return new Promise((resolve, reject) => {
+                execFile("python", [scriptPath, tempPath], (err, stdout, stderr) => {
+                    if (stderr) console.error("📥 STDERR (Python):", stderr);
+                    if (stdout) console.log("📤 STDOUT (Python):", stdout);
+
+                    if (err) {
+                    return reject(new Error("Error al ejecutar el script Python."));
+                    }
+
+                    try {
+                    const result = JSON.parse(stdout);
+                    resolve(result);
+                    } catch (e) {
+                    reject(new Error("Error al interpretar la salida del script."));
+                    }
+                });
+                });
+            } catch (error) {
+                console.error(" Error general en backend:", error.message);
+                throw new Error("Error en el backend: " + error.message);
+            }
+        },
+
+        procesarPronosticoPROGPT: procesarPronosticoPROGPT,
+        
+    },
+    
+    
+
+};
 
 module.exports = resolvers;
