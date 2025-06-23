@@ -1,0 +1,18 @@
+variables.env
+node_modules
+.DS_Store
+
+# Carpetas
+node_modules/
+
+
+# Archivos sensibles
+variables.env
+.env
+
+# Archivos temporales y JSONs que genera tu script
+ventas_parseadas.json
+pronosticoVentas.json
+
+temp_data.json
+123.py

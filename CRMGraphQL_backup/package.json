@@ -1,0 +1,26 @@
+{
+  "name": "crmgraphqlcurso",
+  "version": "1.0.0",
+  "description": "Curso de GraphQL",
+  "main": "index.js",
+  "scripts": {
+    "start": "node .",
+    "dev": "nodemon ."
+  },
+  "dependencies": {
+    "apollo-server": "^2.26.2",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^8.6.0",
+    "fs": "0.0.1-security",
+    "graphql": "^15.8.0",
+    "graphql-type-json": "^0.3.2",
+    "jsonwebtoken": "^8.5.1",
+    "moment": "^2.30.1",
+    "mongoose": "^5.13.23",
+    "openai": "^5.5.1",
+    "path": "^0.12.7",
+    "python-shell": "^5.0.0"
+  },
+  "keywords": []
+}
