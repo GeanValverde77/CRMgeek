@@ -4,7 +4,6 @@ node_modules
 
 # Carpetas
 node_modules/
-uploads/
 
 # Archivos sensibles
 variables.env
@@ -13,6 +12,5 @@ variables.env
 # Archivos temporales y JSONs que genera tu script
 ventas_parseadas.json
 pronosticoVentas.json
-temp.csv
 temp_data.json
 123.py
