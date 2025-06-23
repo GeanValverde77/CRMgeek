@@ -1,0 +1,9 @@
+# Carpetas que no se deben subir
+node_modules/
+.next/
+out/
+dist/
+
+# Archivos de entorno
+.env.local
+.env

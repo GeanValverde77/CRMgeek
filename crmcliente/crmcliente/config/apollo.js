@@ -1,31 +1,27 @@
-import { ApolloClient, createHttpLink, InMemoryCache } from '@apollo/client';
-import fetch from 'node-fetch'
-import { setContext } from 'apollo-link-context';
+import { ApolloClient, InMemoryCache } from '@apollo/client';
+import { setContext } from '@apollo/client/link/context';
+import { createUploadLink } from 'apollo-upload-client';  // ✅ Correcto con versión 17
+import fetch from 'cross-fetch';
 
-const httpLink = createHttpLink({
-    uri: 'https://pacific-bayou-12464.herokuapp.com/',
-    fetch   
+const uploadLink = createUploadLink({
+  uri: 'http://localhost:4000/graphql',  // ✅ Ruta correcta
+  fetch,
 });
+
 
 const authLink = setContext((_, { headers }) => {
-
-    // Leer el storage almacenado
-    const token = localStorage.getItem('token');
-    // console.log(token);
-
-    return {
-        headers: {
-            ...headers,
-            authorization: token ? `Bearer ${token}` : ''
-        }
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `Bearer ${token}` : '',
     }
+  };
 });
 
-
 const client = new ApolloClient({
-    connectToDevTools: true,
-    cache: new InMemoryCache(),
-    link: authLink.concat( httpLink )
+  link: authLink.concat(uploadLink),
+  cache: new InMemoryCache()
 });
 
 export default client;

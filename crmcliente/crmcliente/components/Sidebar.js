@@ -57,6 +57,21 @@ const Sidebar = () => {
                         </a>
                     </Link>
                 </li>
+                <li className={router.pathname === "/pronostico" ? "bg-blue-800 p-2" : "p-2"}>
+                    <Link href="/pronostico">
+                        <a className="text-white block">
+                            Pronostico ventas
+                        </a>
+                    </Link>
+                </li>
+                
+                <li className={router.pathname === "/pronosticoPROGPT" ? "bg-blue-800 p-2" : "p-2"}>
+                    <Link href="/pronosticoPROGPT">
+                        <a className="text-white block">
+                            pronosticoPROGPT
+                        </a>
+                    </Link>
+                </li>
             </nav>
 
         </aside>

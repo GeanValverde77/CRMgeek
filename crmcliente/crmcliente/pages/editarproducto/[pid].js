@@ -29,16 +29,15 @@ const ACTUALIZAR_PRODUCTO = gql`
 
 const EditarProducto = () => {
     const router = useRouter();
-    const { query: { id } } = router;
+    const id = router.query.id;
+    if (!id) return <p>Cargando ID del producto...</p>;
     // console.log(id)
-
+    console.log("ID desde router.query:", id);
     // Consultar para obtener el producto
     const { data, loading, error } = useQuery(OBTENER_PRODUCTO, {
-        variables: {
-            id
-        }
+        variables: { id },
     });
-
+    console.log("Resultado de la query:", data);
     // Mutation para modificar el producto
     const [ actualizarProducto ] = useMutation(ACTUALIZAR_PRODUCTO);
 
@@ -60,8 +59,11 @@ const EditarProducto = () => {
     // console.log(loading)
     // console.log(error)
 
-    if(loading) return 'Cargando...';
-
+    if (!loading && (!data || !data.obtenerProducto)) {
+        console.log("No se encontró el producto");
+        return 'Acción no permitida';
+    }
+    
     if(!data) { 
         return 'Acción no permitida';
     }
